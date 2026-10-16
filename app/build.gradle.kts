@@ -57,7 +57,7 @@ abstract class GenerateBuildDateTask : DefaultTask() {
 
     @TaskAction
     fun generate() {
-        val buildDate = DateTimeFormatter.ofPattern("MMM d, yyyy").format(ZonedDateTime.now())
+        val buildDate = DateTimeFormatter.ofPattern("MMM d, yyyy h:mm a").format(ZonedDateTime.now())
         val packageDir = outputDir.get().asFile.resolve("com/golfpvcc/martytracker")
         packageDir.mkdirs()
         packageDir.resolve("BuildInfo.kt").writeText(

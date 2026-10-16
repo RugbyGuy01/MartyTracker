@@ -23,6 +23,7 @@ class InMemoryLiveTrackingRepository : LiveTrackingRepository {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var timerJob: Job? = null
     private var startInstant: Instant? = null
+    private var distanceAnchor: RoutePoint? = null
 
     private val _status = MutableStateFlow(TrackingStatus.IDLE)
     override val status: StateFlow<TrackingStatus> = _status.asStateFlow()
@@ -48,11 +49,14 @@ class InMemoryLiveTrackingRepository : LiveTrackingRepository {
     override fun onLocationUpdate(point: RoutePoint) {
         if (_status.value != TrackingStatus.TRACKING) return
 
-        val last = _routePoints.value.lastOrNull()
-        if (last != null) {
-            val delta = DistanceCalculator.haversineMiles(last, point)
+        val anchor = distanceAnchor
+        if (anchor == null) {
+            distanceAnchor = point
+        } else {
+            val delta = DistanceCalculator.haversineMiles(anchor, point)
             if (delta >= JITTER_THRESHOLD_MILES) {
                 _distanceMiles.value += delta
+                distanceAnchor = point
             }
         }
         _routePoints.value = _routePoints.value + point
@@ -100,6 +104,7 @@ class InMemoryLiveTrackingRepository : LiveTrackingRepository {
     override fun reset() {
         stopTimer()
         startInstant = null
+        distanceAnchor = null
         _status.value = TrackingStatus.IDLE
         _routePoints.value = emptyList()
         _elapsedSeconds.value = 0L

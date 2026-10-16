@@ -31,6 +31,7 @@ class LocationTrackingService : LifecycleService() {
         private const val UPDATE_INTERVAL_MS = 2000L
         private const val MAX_TONE_VOLUME = 100
         private const val MILE_MARKER_BEEP_DURATION_MS = 300
+        private const val MAX_ACCEPTABLE_ACCURACY_METERS = 30f
     }
 
     private val liveTrackingRepository: LiveTrackingRepository by inject()
@@ -42,6 +43,7 @@ class LocationTrackingService : LifecycleService() {
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
             val location = result.lastLocation ?: return
+            if (location.hasAccuracy() && location.accuracy > MAX_ACCEPTABLE_ACCURACY_METERS) return
             liveTrackingRepository.onLocationUpdate(
                 RoutePoint(
                     lat = location.latitude,
@@ -93,6 +95,7 @@ class LocationTrackingService : LifecycleService() {
     @SuppressLint("MissingPermission")
     private fun requestLocationUpdates() {
         val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, UPDATE_INTERVAL_MS)
+            .setMinUpdateIntervalMillis(UPDATE_INTERVAL_MS)
             .build()
         fusedLocationClient.requestLocationUpdates(request, locationCallback, mainLooper)
     }

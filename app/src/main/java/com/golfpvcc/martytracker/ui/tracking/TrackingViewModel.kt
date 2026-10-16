@@ -9,6 +9,8 @@ import com.golfpvcc.martytracker.domain.repository.LiveTrackingRepository
 import com.golfpvcc.martytracker.domain.repository.WalkRepository
 import com.golfpvcc.martytracker.service.TrackingServiceController
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -80,7 +82,11 @@ class TrackingViewModel(
     private fun loadStartupLocation() {
         viewModelScope.launch {
             try {
-                fusedLocationClient.lastLocation.await()?.let { location ->
+                val cancellationTokenSource = CancellationTokenSource()
+                fusedLocationClient.getCurrentLocation(
+                    Priority.PRIORITY_HIGH_ACCURACY,
+                    cancellationTokenSource.token
+                ).await()?.let { location ->
                     _state.update {
                         it.copy(
                             startupLocation = RoutePoint(

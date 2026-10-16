@@ -54,6 +54,7 @@ fun TrackingRoot(viewModel: TrackingViewModel = koinViewModel()) {
 
     var showBackgroundRationale by remember { mutableStateOf(false) }
     var showLimitedBanner by remember { mutableStateOf(false) }
+    var hasLocationPermission by remember { mutableStateOf(hasForegroundLocationPermission(context)) }
 
     fun continueAfterForegroundGranted() {
         if (!hasBackgroundLocationPermission(context) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -86,10 +87,13 @@ fun TrackingRoot(viewModel: TrackingViewModel = koinViewModel()) {
         val granted = results.values.any { it }
         if (!granted) {
             scope.launch { snackbarHostState.showSnackbar("Location permission is required to track a walk.") }
-        } else if (!hasNotificationPermission(context) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
-            continueAfterForegroundGranted()
+            hasLocationPermission = true
+            if (!hasNotificationPermission(context) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                continueAfterForegroundGranted()
+            }
         }
     }
 
@@ -97,6 +101,7 @@ fun TrackingRoot(viewModel: TrackingViewModel = koinViewModel()) {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
         if (results.values.any { it }) {
+            hasLocationPermission = true
             viewModel.onLocationPermissionGranted()
         }
     }
@@ -161,6 +166,7 @@ fun TrackingRoot(viewModel: TrackingViewModel = koinViewModel()) {
         TrackingScreen(
             state = state,
             showLimitedBanner = showLimitedBanner,
+            hasLocationPermission = hasLocationPermission,
             onOpenSettings = {
                 context.startActivity(
                     Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
@@ -178,18 +184,30 @@ fun TrackingRoot(viewModel: TrackingViewModel = koinViewModel()) {
 private fun TrackingScreen(
     state: TrackingState,
     showLimitedBanner: Boolean,
+    hasLocationPermission: Boolean,
     onOpenSettings: () -> Unit,
     onStartRequested: () -> Unit,
     onAction: (TrackingAction) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize()) {
-        RoutePolylineMap(
-            routePoints = state.routePoints,
-            startupLocation = state.startupLocation,
-            followCurrentLocation = state.status == TrackingStatus.TRACKING,
-            modifier = Modifier.fillMaxWidth().weight(2f)
-        )
+        if (hasLocationPermission) {
+            RoutePolylineMap(
+                routePoints = state.routePoints,
+                startupLocation = state.startupLocation,
+                followCurrentLocation = state.status == TrackingStatus.TRACKING,
+                modifier = Modifier.fillMaxWidth().weight(2f)
+            )
+        } else {
+            Card(modifier = Modifier.fillMaxWidth().weight(2f)) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(16.dp),
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text("Allow location access to see the map.")
+                }
+            }
+        }
 
         Column(
             modifier = Modifier
